@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "941023730150",
+    "firebase_url": "https://gmd-ind4-platform-t-default-rtdb.firebaseio.com",
+    "project_id": "gmd-ind4-platform-t",
+    "storage_bucket": "gmd-ind4-platform-t.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:941023730150:android:f7c99d8109741f16169e27",
+        "android_client_info": {
+          "package_name": "Zebra.Technologies.iot_dashboard"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "941023730150-lbnjbl1d5f298ohuimpo0iuca9ahp9he.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvaNtTe1Jrk9ydHn1-WasPmH8fO6IpbNU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "941023730150-lbnjbl1d5f298ohuimpo0iuca9ahp9he.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
