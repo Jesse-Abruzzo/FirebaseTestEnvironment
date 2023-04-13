@@ -1,53 +1,88 @@
 import 'dart:convert' as convert;
+import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:iot_dashboard/globals.dart';
 
 
 
-Future<bool> httpYieldSpecificCall(type,supplier,site,bu,program,process,station,{String dateRange = ''}) async {
+Future<Map> httpYieldSpecificCall(type,supplier,site,bu,program,process,station,{String dateRange = ''}) async {
   //build url
-  String urlAdd = '';
+  String path = '/getYield';
+  Map<String,String> parameters = {};
   http://10.63.22.17:8000/jsontree/
   switch (type){
     case 'Supplier':
-      urlAdd = '/getYield?type=Supplier&supplier='+supplier;
+      parameters['Type'] = 'Supplier';
+      parameters['Supplier'] = supplier;
       break;
     case 'Site':
-      urlAdd = '/getYield?type=Supplier&supplier='+supplier+'&site='+site;
+      parameters['Type'] = 'Site';
+      parameters['Supplier'] = supplier;
+      parameters['Site'] = site;
+      break;
+    case 'bu':
+      parameters['Type'] = 'BU';
+      parameters['Supplier'] = supplier;
+      parameters['Site'] = site;
+      parameters['BU'] = bu;
+      break;
+    case 'Program':
+      parameters['Type'] = 'Product_Family';
+      parameters['Supplier'] = supplier;
+      parameters['BU'] = bu;
+      parameters['Site'] = site;
+      parameters['Product_Family'] = program;
+      break;
+    case 'Process':
+      parameters['Type'] = 'Process';
+      parameters['Supplier'] = supplier;
+      parameters['Site'] = site;
+      parameters['BU'] = bu;
+      parameters['Product_Family'] = program;
+      parameters['Process'] = process;
+      break;
+    case 'Station':
+      parameters['Type'] = 'Station';
+      parameters['Supplier'] = supplier;
+      parameters['Site'] = site;
+      parameters['BU'] = bu;
+      parameters['Product_Family'] = program;
+      parameters['Process'] = process;
+      parameters['Station'] = station;
   }
-  var url = Uri.http('10.63.22.17:8000',urlAdd);
+  var url = Uri.http(httpIP,path,parameters);
+ // print(path);
+  print(url);
 
   // Await the http get response, then decode the json-formatted response.
   var response = await http.get(url);
-  if (response.statusCode == 200) {
-    Map yieldData = convert.jsonDecode(response.body);
+  if (response.statusCode == 200 && response.body != null) {
+    Map<String,dynamic> yieldData = convert.jsonDecode(response.body);
     //combine into yields Map
-    yieldData.forEach((key, value) {
       if(type.toLowerCase() == "supplier") {
-        yields[supplier][key] = value;
+        yields[supplier].addAll(yieldData);
       }else if(type.toLowerCase() == 'site') {
-        yields[supplier][site][key] = value;
+        yields[supplier][site].addAll(yieldData);
       } else if(type.toLowerCase() == 'bu') {
-        yields[supplier][site][bu][key] = value;
+        yields[supplier][site][bu].addAll(yieldData);
       }else if(type.toLowerCase() == 'program') {
-        yields[supplier][site][bu][program][key] = value;
+        yields[supplier][site][bu][program].addAll(yieldData);
       }else if(type.toLowerCase() == 'process') {
-        yields[supplier][site][bu][program][process][key] = value;
+        yields[supplier][site][bu][program][process].addAll(yieldData);
       }else if(type.toLowerCase() == 'station') {
-        yields[supplier][site][bu][program][process][station][key] = value;
+        yields[supplier][site][bu][program][process][station].addAll(yieldData);
       }
-    });
-    return true;
+    return {'status':true,'code':response.statusCode};
   } else {
     print('Request failed with status: ${response.statusCode}.');
-    return false;
+    return {'status':false,'code':response.statusCode};
   }
 
 }
 
-Future<bool> httpGetTopicNames({String fromDate = '',String toDate = ''}) async {
-  var url = Uri.http('10.63.22.17:8000','/jsontree/');
+Future<Map> httpGetTopicNames({String fromDate = '',String toDate = ''}) async {
+  var url = Uri.http(httpIP,'/jsontree/');
 
   if(fromDate != ''){
 
@@ -59,13 +94,13 @@ Future<bool> httpGetTopicNames({String fromDate = '',String toDate = ''}) async 
   // Await the http get response, then decode the json-formatted response.
   var response = await http.get(url);
   if (response.statusCode == 200) {
-    Map yieldNames = convert.jsonDecode(response.body);
+    yieldNamesRaw = convert.jsonDecode(response.body);
     //combine into yields Map
-    yields = yieldNames;
-    return true;
+    yields = Map.from(yieldNamesRaw['Data']);
+    return {'status':true,'code':response.statusCode};
   } else {
     print('Request failed with status: ${response.statusCode}.');
-    return false;
+    return {'status':false,'code':response.statusCode};
   }
 
 }

@@ -11,7 +11,7 @@ import 'package:intl/intl.dart';
 import 'SerialNumberBottomBar.dart';
 
 
-Widget preBuildAChartSeries(supplier,context,site,yield,type){
+Widget preBuildAChartSeries(supplier,context,site,yield,type,yieldNamesOnly){
   ///build chart when user clicks on the topic. That way you have the path down to where you need to store it.
   ///create chartData have to update everytime data comes in
     if (chartInfo[site] == null) {
@@ -43,17 +43,15 @@ Widget preBuildAChartSeries(supplier,context,site,yield,type){
       chartInfo[site][type]['realtime'] = true;
     }
 
-    List<FastLineSeries<dynamic,  DateTime>> tempCharts = buildMultiLayeredChart(supplier,site,type,yield); //program, process, station, etc.
+    List<FastLineSeries<dynamic,  DateTime>> tempCharts = buildMultiLayeredChart(supplier,site,type,yield,yieldNamesOnly); //program, process, station, etc.
     return simpleLineChartNoLimits(context, type + ' Yield', true, true, site, tempCharts, type);
   }
 
-List<FastLineSeries<dynamic,  DateTime>> buildMultiLayeredChart(supplier,site,type,yield){
+List<FastLineSeries<dynamic,  DateTime>> buildMultiLayeredChart(supplier,site,type,yield,yieldNamesOnly){
     //Map temp = getListOfType(site,key,type,yieldObj);
     List<FastLineSeries<dynamic,  DateTime>> chartWidgets = [];
     //want to build all of that type
-    List names = yield.keys.toList();
-    names.remove('YieldData');
-    names.remove('RFTY');
+    List names = yieldNamesOnly.keys.toList();
     for (var i = 0; i < names.length;i++) {
       if(chartInfo[site][names[i]] == null){
         chartInfo[site][names[i]] = {};
@@ -64,6 +62,9 @@ List<FastLineSeries<dynamic,  DateTime>> buildMultiLayeredChart(supplier,site,ty
       }
       //get yield data List for that type
       yieldChartData = Map.from(yields);
+      if(type == 'Process') {
+        print(yieldChartData[supplier][site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']][names[i]]['YieldData']);
+      }
       chartWidgets.add(FastLineSeries<dynamic, DateTime>(
         onRendererCreated: (ChartSeriesController controller) {
           if (chartInfo[site] == null) {
@@ -95,8 +96,8 @@ List<FastLineSeries<dynamic,  DateTime>> buildMultiLayeredChart(supplier,site,ty
         color: chartInfo[site][names[i]]['color'],
         name:names[i],
         dataSource:  type == 'Site' ? yieldChartData[supplier][names[i]]['YieldData']:type == 'bu' ? yieldChartData[supplier][site][names[i]]['YieldData']:type == 'Program' ? yieldChartData[supplier][site][siteCardInfo[site]['userChoices']['bu']][names[i]]['YieldData']:type == 'Process' ? yieldChartData[supplier][site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']][names[i]]['YieldData']: yieldChartData[supplier][site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']][siteCardInfo[site]['userChoices']['Process']][names[i]]['YieldData'],
-        xValueMapper: (data, x) => DateTime.parse(data['date']),
-        yValueMapper: (data, y) => double.parse(data['yield'].toStringAsFixed(2)),
+        xValueMapper: (data, x) => DateTime.parse(data['Date']),
+        yValueMapper: (data, y) => double.parse(data['Cumulative Yield'].toStringAsFixed(2)),
         //selectionBehavior: _selectionBehavior
       ));
     }
@@ -111,7 +112,7 @@ Widget simpleLineChartNoLimits(context,title, zoom, pan, site, List<FastLineSeri
       builder: (dynamic data, dynamic point, dynamic series, int pointIndex, int seriesIndex) {
         return Container(color:Colors.grey,child:Column(mainAxisSize: MainAxisSize.min,children:[
           Text(series.name.toString(),style: const TextStyle(fontSize: 10,color: Colors.black)),
-        Material(
+        /*Material(
         type: MaterialType.transparency,
         child: InkWell(hoverColor:Colors.teal.withOpacity(.3),onTap:(){
             Map tempData = findSNInfo(data["SerialNumber"]);
@@ -120,10 +121,10 @@ Widget simpleLineChartNoLimits(context,title, zoom, pan, site, List<FastLineSeri
             }else{
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Oops something went wrong...')),);
             }
-          },child:Text(data["SerialNumber"].toString(),style: const TextStyle(fontSize: 10,color: Colors.teal)))),
+          },child:Text(data["SerialNumber"].toString(),style: const TextStyle(fontSize: 10,color: Colors.teal)))),*/
           SizedBox(width:100,child:Divider(height:5,endIndent:5,indent:5,color: Colors.black,)),
-          Text(data['date'].toString(),style: const TextStyle(fontSize: 10,color: Colors.black)),
-          Text(data['yield'].toStringAsFixed(2) + "%",style: const TextStyle(fontSize: 10,color: Colors.black))]));
+          Text(DateFormat("yyyy-MM-dd hh:mm:ss a").format(DateTime.parse(data['Date'])),style: const TextStyle(fontSize: 10,color: Colors.black)),
+          Text(data['Cumulative Yield'].toStringAsFixed(2) + "%",style: const TextStyle(fontSize: 10,color: Colors.black))]));
       }
   );
   return Card(elevation: 10,

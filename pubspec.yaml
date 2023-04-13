@@ -52,6 +52,7 @@ dependencies:
   animated_text_kit: ^4.2.2
   oauth2: ^2.0.1
   particles_flutter: ^0.1.4
+  intl: ^0.18.0
   firebase_analytics: ^10.2.0
   loading_animation_widget: ^1.2.0+4
 

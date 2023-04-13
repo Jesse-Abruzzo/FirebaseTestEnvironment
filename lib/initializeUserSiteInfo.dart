@@ -9,9 +9,7 @@ void initalizeUserSiteInfo(){
   BuildContext context = NavigationService.navigatorKey.currentContext!;
 
   yields.forEach((supplier, value) {
-    List siteNames = List.from(value.keys.toList());
-    siteNames.remove('YieldData');
-    siteNames.remove('RFTY');
+    List siteNames = List.from(yieldNamesRaw[supplier].keys.toList());
     for(var site in siteNames) {
       if (siteCardInfo[site] == null) {
         siteCardInfo[site] = {};
@@ -40,7 +38,9 @@ void initalizeUserSiteInfo(){
       if (preBuiltCharts[site] == null) {
         preBuiltCharts[site] = {};
       }
-      preBuiltCharts[site]['chart'] = preBuildAChartSeries(supplier, context, site, value, 'Site');
+      if(preBuiltCharts[site]['chart'] == null) {
+        preBuiltCharts[site]['chart'] = preBuildAChartSeries(supplier, context, site, value, 'Site',yieldNamesRaw[supplier]);
+      }
     }
   });
 }

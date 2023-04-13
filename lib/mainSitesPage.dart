@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
+
 
 import 'package:animated_flip_counter/animated_flip_counter.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -40,6 +43,7 @@ class MainSitePageState extends State<MainSitePage> {
 
 
   void initState() {
+    initialYieldFuture = getInitialData();
      const time = Duration(seconds:5);
      Timer.periodic(time, (Timer t)
      {
@@ -58,22 +62,16 @@ class MainSitePageState extends State<MainSitePage> {
     //getrawFirebaseData();
     //deleteAllData();
 
-    List allSuppliers = yields.keys.toList();
-
-    return Scaffold(
-        body: Row(children:[sideDrawer(),FutureBuilder<bool>(
-          future: getInitialData(),
-          builder: (BuildContext context, AsyncSnapshot<bool> snapshot,) {
+    return Scaffold(body: Row(children:[sideDrawer(),FutureBuilder<Map>(
+          future: initialYieldFuture,
+          builder: (BuildContext context, AsyncSnapshot<Map> snapshot,) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return Column(crossAxisAlignment:CrossAxisAlignment.center,children: [
+              return Expanded(child: Column(mainAxisAlignment:MainAxisAlignment.start,crossAxisAlignment:CrossAxisAlignment.center,children: [
                 SizedBox(height:100),
                 const Text('Grabbing Data Please Wait...'),
-                Flexible(child: Row(mainAxisSize:MainAxisSize.min,
+                 Row(mainAxisSize:MainAxisSize.min,
                   children: <Widget>[
-                    Text(
-                      'Everyone and Everything:',
-                      style: TextStyle(fontSize: MediaQuery.of(context).size.width/30),
-                    ),
+                    Text('Everyone and Everything:', style: TextStyle(fontSize: MediaQuery.of(context).size.width/30),),
                     DefaultTextStyle(
                         style:  TextStyle(
                             fontSize: MediaQuery.of(context).size.width/30,
@@ -92,17 +90,29 @@ class MainSitePageState extends State<MainSitePage> {
                         ),
                         )),
                   ],
-                ))]);
+                )]));
             } else if (snapshot.connectionState == ConnectionState.done) {
-              if (snapshot.hasError) {
-                return const Text('Error');
-              } else if (snapshot.hasData) {
-                return Expanded(child:SingleChildScrollView(child:Column(children:[
+              if (snapshot.data == null || snapshot.data!['status'] == false) {
+                return Expanded(child:Padding(padding:EdgeInsets.all(10),child:Column(crossAxisAlignment:CrossAxisAlignment.center,children:[Text('Could not reach server, please try to refresh the page'),snapshot.data != null ? Text('Error Code: ' + snapshot.data!['code'].toString()):Text('Something went very wrong'),Tooltip(message:'Copy Email',child:InkWell(hoverColor:Colors.blue.withOpacity(.4),onTap: () async {
+                  await Clipboard.setData(ClipboardData(text: "Twk463@Zebra.com"));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email Copied')),);
+                  // copied successfully
+                },child:Text('If the issue coninues please contact the support email: twk463@Zebra.com',style: TextStyle(color: Colors.white),)))])));
+              } else if (snapshot.hasData && snapshot.data!['status'] == true) {
+                List allSuppliers = yields.keys.toList();
+                if(supplierFilteredNames.isEmpty || supplierFiltered == 'ALL'){
+                  supplierFilteredNames = yields.keys.toList();
+                }
+                if(supplierFiltered != 'ALL'){
+                  supplierFilteredNames.removeWhere((element) => element != supplierFiltered);
+                }
+                initalizeUserSiteInfo();
+                return Expanded(child:SingleChildScrollView(child:Align(alignment:Alignment.topCenter,child:Column(children:[
                   Text('Last Updated: ' + lastRefreshTime),
                   //Container(width:100,height:100,child:InkWell(onTap:(){postData();},child:Image.asset('assets/zebraBlack.png'))),
-                  Row(children: [for(var i = 0; i < allSuppliers.length;i++) supplierYieldsLayout(allSuppliers[i],yields[allSuppliers[i]]['YieldData'].last['yield'],yields[allSuppliers[i]]['RFTY']),supplierColumnChartShow(),]),
-                  for(var i = 0; i < supplierFilteredNames.length;i++) for(var i in mainCardLayout(supplierFilteredNames.elementAt(i))) i
-                ])));
+                  Row(children: [for(var i = 0; i < allSuppliers.length;i++) supplierYieldsLayout(allSuppliers[i],yields[allSuppliers[i]]['YieldData'].last['Cumulative Yield'],yields[allSuppliers[i]]['RFTY']),supplierColumnChartShow(),]),
+                  for(var x = 0; x < supplierFilteredNames.length;x++) for(var i in mainCardLayout(supplierFilteredNames.elementAt(x))) i
+                ]))));
               } else {
                 return const Text('Empty data');
               }
@@ -118,6 +128,7 @@ class MainSitePageState extends State<MainSitePage> {
    supplierColumnData = Map.fromEntries(supplierColumnData.entries.toList()..sort((e1, e2) => supplierColumnData[e1.key]!.last.yieldLoss.compareTo(supplierColumnData[e2.key]!.last.yieldLoss)));
     //supplierColumnData[supplier]!.sort((a, b) => a.yieldLoss.compareTo(b.yieldLoss));
     List siteCards = [];
+    print('ere');
    yields[supplier].forEach((site, value) {
      if (site != 'YieldData' && site != 'RFTY') {
        if(siteLoadingChart[site] == null) {
@@ -135,9 +146,7 @@ class MainSitePageState extends State<MainSitePage> {
 
        ///only search if needed and one time?
        Map buInfo = yields[supplier][site];
-       List buInfoNames = Globals().getYieldData()[supplier][site].keys.toList();
-       buInfoNames.remove('YieldData');
-       buInfoNames.remove('RFTY');
+       List buInfoNames = yieldNamesRaw[supplier][site].keys.toList();
        Map programInfo = {};
        List programInfoNames = [];
        Map processInfo = {};
@@ -147,21 +156,15 @@ class MainSitePageState extends State<MainSitePage> {
 
        if(siteCardInfo[site]['userChoices']['bu'] != '') {
          programInfo = yields[supplier][site][siteCardInfo[site]['userChoices']['bu']];
-         programInfoNames = Globals().getYieldData()[supplier][site][siteCardInfo[site]['userChoices']['bu']].keys.toList();
-         programInfoNames.remove('YieldData');
-         processInfoNames.remove('RFTY');
+         programInfoNames = yieldNamesRaw[supplier][site][siteCardInfo[site]['userChoices']['bu']].keys.toList();
        }
        if(siteCardInfo[site]['userChoices']['Program'] != '') {
          processInfo = yields[supplier][site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']];
-         processInfoNames = Globals().getYieldData()[supplier][site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']].keys.toList();
-         processInfoNames.remove('YieldData');
-         processInfoNames.remove('RFTY');
+         processInfoNames = yieldNamesRaw[supplier][site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']].keys.toList();
        }
        if(siteCardInfo[site]['userChoices']['Process'] != '') {
          stationInfo = yields[supplier][site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']][siteCardInfo[site]['userChoices']['Process']];
-         stationInfoNames = Globals().getYieldData()[supplier][site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']][siteCardInfo[site]['userChoices']['Process']].keys.toList();
-         stationInfoNames.remove('YieldData');
-         stationInfoNames.remove('RFTY');
+         stationInfoNames = yieldNamesRaw[supplier][site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']][siteCardInfo[site]['userChoices']['Process']].keys.toList();
        }
 
        //build and update chart data for every yield key in map
@@ -170,7 +173,7 @@ class MainSitePageState extends State<MainSitePage> {
 
        ///try to replace this with a yield obj for each?
        String comboNameDisplay = supplierSiteLookup('Supplier', supplier) + ' - ' + supplierSiteLookup('Site', site);
-       double latestSiteYield = yields[supplier][site]['YieldData'].last['yield'];
+       double latestSiteYield = yields[supplier][site]['YieldData'].last['Cumulative Yield'];
        double rfty = yields[supplier][site]['RFTY'];
        siteCards.add(Container(padding: const EdgeInsets.all(10),child:
        Card(child: Padding(padding: EdgeInsets.all(10), child:
@@ -237,7 +240,9 @@ class MainSitePageState extends State<MainSitePage> {
                    if(!result){
                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Oops something went wrong... try again')),);
                    }
-                   siteLoadingChart[site] = false;                 }, child: Text(buInfoNames[i].toString() + ' ' + buInfo[buInfoNames[i]]['YieldData'].last['yield'].toString() + '%',
+                   siteLoadingChart[site] = false;
+                   },
+                     child: Text(buInfoNames[i].toString() /*+ ' ' + buInfo[buInfoNames[i]]['YieldData'].last['Cumulative Yield'].toString() + '%'*/,
                    style: const TextStyle(color: Colors.teal),))
                ]),
            siteCardInfo[site]['userChoices']['bu'] != ''
@@ -253,9 +258,8 @@ class MainSitePageState extends State<MainSitePage> {
                    if(!result){
                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Oops something went wrong... try again')),);
                    }
-                   siteLoadingChart[site] = false;                 }, child: Text(programInfoNames[i].toString() +
-                     ' ' + programInfo[programInfoNames[i]]['YieldData'].last['yield'].toString() +
-                     '%', style: const TextStyle(color: Colors.teal),))
+                   siteLoadingChart[site] = false;
+                   }, child: Text(programInfoNames[i].toString() /*+ ' ' + programInfo[programInfoNames[i]]['YieldData'].last['Cumulative Yield'].toString() + '%'*/, style: const TextStyle(color: Colors.teal),))
                ]) : SizedBox(),
            siteCardInfo[site]['userChoices']['Program'] != ''
                ? Text(
@@ -272,12 +276,20 @@ class MainSitePageState extends State<MainSitePage> {
                    if(!result){
                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Oops something went wrong... try again')),);
                    }
-                   siteLoadingChart[site] = false;                 }, child: Text(processInfoNames[i].toString() + ' ' + processInfo[processInfoNames[i]]['YieldData'].last['yield'].toString() + '%', style: const TextStyle(color: Colors.teal),))
+                   siteLoadingChart[site] = false;                 }, child: Text(processInfoNames[i].toString()/* + ' ' + processInfo[processInfoNames[i]]['YieldData'].last['Cumulative Yield'].toString() + '%'*/, style: const TextStyle(color: Colors.teal),))
                ]) : SizedBox(),
            siteCardInfo[site]['userChoices']['Process'] != '' ? Text('Total Stations: ' + stationInfoNames.length.toString()) : SizedBox(),
            siteCardInfo[site]['userChoices']['Process'] != '' ? Column(
                children: [
-                 for(var i = 0; i <  stationInfoNames.length; i++) AnimatedSwitcher(duration: Duration(milliseconds: 500),child: siteCardInfo[site]['userChoices']['Station'] == stationInfoNames[i] ? Row(children:[InkWell(hoverColor: Colors.teal.withOpacity(.5), onTap: () async {
+                 for(var i = 0; i <  stationInfoNames.length; i++) AnimatedSwitcher(duration: Duration(milliseconds: 500),child: siteCardInfo[site]['userChoices']['Station'] == stationInfoNames[i] ? Row(children:[InkWell(hoverColor: Colors.red.withOpacity(.5), onTap: () async {
+                   /*siteLoadingChart[site] = true;
+                   setState(() {});
+                   bool result = await switchChartClicked(supplier,site,stationInfoNames[i].toString(), 'Station');
+                   if(!result){
+                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Oops something went wrong... try again')),);
+                   }
+                   siteLoadingChart[site] = false;*/
+                 }, child: Text(stationInfoNames[i].toString() /*+ ' ' + stationInfo[stationInfoNames[i]]['YieldData'].last['Cumulative Yield'].toString() + '%'*/, style: const TextStyle(color: Colors.teal))),InkWell(hoverColor:Colors.blueGrey.withOpacity(.5),onTap:() async {
                    siteLoadingChart[site] = true;
                    setState(() {});
                    bool result = await switchChartClicked(supplier,site,stationInfoNames[i].toString(), 'Station');
@@ -285,9 +297,9 @@ class MainSitePageState extends State<MainSitePage> {
                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Oops something went wrong... try again')),);
                    }
                    siteLoadingChart[site] = false;
-                 }, child: Text(stationInfoNames[i].toString() + ' ' + stationInfo[stationInfoNames[i]]['YieldData'].last['yield'].toString() + '%', style: const TextStyle(color: Colors.teal))),InkWell(hoverColor:Colors.blueGrey.withOpacity(.5),onTap:(){},child:Text(' -> Deep Dive'))]):InkWell(hoverColor: Colors.teal.withOpacity(.5), onTap: () async {
+                 },child:Text(' -> Deep Dive'))]):InkWell(hoverColor: Colors.teal.withOpacity(.5), onTap: () async {
                    //await switchChartClicked(supplier,site,  stationInfoNames[i].toString(), 'Station');
-                 }, child: Text(stationInfoNames[i].toString() + ' ' + stationInfo[stationInfoNames[i]]['YieldData'].last['yield'].toString() + '%', style: const TextStyle(color: Colors.teal)))),
+                 }, child: Text(stationInfoNames[i].toString() /*+ ' ' + stationInfo[stationInfoNames[i]]['YieldData'].last['Cumulative Yield'].toString() + '%'*/, style: const TextStyle(color: Colors.teal)))),
                ]) : SizedBox(),
          ]),
          Expanded(child: Card(
@@ -551,48 +563,77 @@ class MainSitePageState extends State<MainSitePage> {
     String program = 'NA';
     String process = 'NA';
     String station = 'NA';
-    bool result = await httpCallFake();
-      if(type == 'bu'){
-      //reset others
-      siteCardInfo[site]['userChoices']['Process'] = '';
-      siteCardInfo[site]['userChoices']['Program'] = '';
-      siteCardInfo[site]['userChoices']['Station'] = '';
-    }else if(type == 'Program'){
-      siteCardInfo[site]['userChoices']['Process'] = '';
-      siteCardInfo[site]['userChoices']['Station'] = '';
-    }
-    if(siteCardInfo[site] == null){
-      siteCardInfo[site] = {};
-    }
-    siteCardInfo[site]['ShownChart'] = type;
-    siteCardInfo[site]['userChoices'][type] = keyClicked;
+    List yieldKeys = [];
+    bool hasData = false;
+    //bool result = await httpCallFake();
     //make call to get data
     if(type.toLowerCase() == "supplier") {
+      yieldKeys = Globals().getYieldData().keys.toList();
+      if(Globals().getYieldData()[supplier].isNotEmpty()){
+        hasData = true;
+      }
     }else if(type.toLowerCase() == 'site') {
+      yieldKeys = Globals().getYieldData()[supplier].keys.toList();
+      if(Globals().getYieldData()[supplier][site][keyClicked]['YieldData'] != null){
+        hasData = true;
+      }
     } else if(type.toLowerCase() == 'bu') {
       bu = siteCardInfo[site]['userChoices']['bu'];
+      yieldKeys = Globals().getYieldData()[supplier][site].keys.toList();
+      if(Globals().getYieldData()[supplier][site][bu][keyClicked]['YieldData'] != null){
+        hasData = true;
+      }
     }else if(type.toLowerCase() == 'program') {
       bu = siteCardInfo[site]['userChoices']['bu'];
       program = siteCardInfo[site]['userChoices']['Program'];
+      yieldKeys = Globals().getYieldData()[supplier][site][bu].keys.toList();
+      if(Globals().getYieldData()[supplier][site][bu][program][keyClicked]['YieldData'] != null){
+        hasData = true;
+      }
     }else if(type.toLowerCase() == 'process') {
       bu = siteCardInfo[site]['userChoices']['bu'];
       program = siteCardInfo[site]['userChoices']['Program'];
       process = siteCardInfo[site]['userChoices']['Process'];
+      yieldKeys = Globals().getYieldData()[supplier][site][bu][program].keys.toList();
+      if(Globals().getYieldData()[supplier][site][bu][program][process][keyClicked]['YieldData'] != null){
+        hasData = true;
+      }
     }else if(type.toLowerCase() == 'station') {
       bu = siteCardInfo[site]['userChoices']['bu'];
       program = siteCardInfo[site]['userChoices']['Program'];
       process = siteCardInfo[site]['userChoices']['Process'];
       station = siteCardInfo[site]['userChoices']['Station'];
+      yieldKeys = yieldNamesRaw[supplier][site][bu][program][process].keys.toList();
+      if(Globals().getYieldData()[supplier][site][bu][program][process][station]['YieldData'] != null){
+        hasData = true;
+      }
     }
-      //bool result = await httpYieldSpecificCall(type, supplier, site, bu, program, process, station, '1');
-    if(result) {
-      chartSwitchReset(supplier, site, type);
-      return true;
-    }else{
+    print(yieldKeys);
+    //get yield data and get keys like it does in names. Then for loop to get all key yieldData
+    if(!hasData){
+    try {
+      await Future.wait([for(var key in yieldKeys) type == 'Supplier' ? httpYieldSpecificCall(type, key, site, bu, program, process, station):type == 'Site' ? httpYieldSpecificCall(type, supplier, key, bu, program, process, station):type == 'bu' ? httpYieldSpecificCall(type, supplier, site, key, program, process, station):type == 'Program' ? httpYieldSpecificCall(type, supplier, site, bu, key, process, station):type == 'Process' ? httpYieldSpecificCall(type, supplier, site, bu, program, key, station):httpYieldSpecificCall(type, supplier, site, bu, program, process, key)]);
+    } catch (e)  {
       return false;
     }
-   // setState(() {});
-  }
+    }
+      if(type == 'bu'){
+        //reset others
+        siteCardInfo[site]['userChoices']['Process'] = '';
+        siteCardInfo[site]['userChoices']['Program'] = '';
+        siteCardInfo[site]['userChoices']['Station'] = '';
+      }else if(type == 'Program'){
+        siteCardInfo[site]['userChoices']['Process'] = '';
+        siteCardInfo[site]['userChoices']['Station'] = '';
+      }
+      if(siteCardInfo[site] == null){
+        siteCardInfo[site] = {};
+      }
+      siteCardInfo[site]['ShownChart'] = type;
+    siteCardInfo[site]['userChoices'][type] = keyClicked;
+    chartSwitchReset(supplier, site, type);
+      return true;
+    }
 
   Future<bool> httpCallFake() async {
     await Future.delayed(const Duration(seconds: 5));
@@ -623,20 +664,6 @@ class MainSitePageState extends State<MainSitePage> {
     lastRefreshTime = DateFormat('MM-dd-yyyy hh:mm:ss a').format(DateTime.now()).toString();
     //await postData();
     //httpYieldCall();
-
-    // Get the data once
-    DatabaseReference ref = FirebaseDatabase.instance.ref();
-    DatabaseEvent event = await ref.once();
-
-    rawFirebaseData = event.snapshot.value as Map;
-    //serialNumbers = rawFirebaseData["SerialNumbers"].map<SerialNumbers>((json) => SerialNumbers.fromJson(json)).toList();
-    // yields = rawFirebaseData["Yields"].map<Yields>((json) => Yields.fromJson(json)).toList();
-    yields = rawFirebaseData["Yields"];
-
-    if(once) {
-      initalizeUserSiteInfo();
-      once = false;
-    }
     if(supplierFilteredNames.isEmpty || supplierFiltered == 'ALL'){
       supplierFilteredNames = yields.keys.toList();
     }
@@ -652,26 +679,26 @@ class MainSitePageState extends State<MainSitePage> {
     //run and do a check if anything is null and set to an empty map
 
     if(siteCardInfo[site]['ShownChart'] == 'Site'){
-      preBuiltCharts[site]['chart'] = preBuildAChartSeries(supplier,context, site,Globals().getYieldData()[supplier],type);
+      preBuiltCharts[site]['chart'] = preBuildAChartSeries(supplier,context, site,Globals().getYieldData()[supplier],type,yieldNamesRaw[supplier]);
     }
     if(siteCardInfo[site]['ShownChart'] == "bu") {
       //if(preBuiltCharts[site][siteCardInfo[site]['userChoices']['bu']]['chart'] == null) {
-      preBuiltCharts[site][siteCardInfo[site]['userChoices']['bu']]['chart'] = preBuildAChartSeries(supplier,context, site,Globals().getYieldData()[supplier][site],type);
+      preBuiltCharts[site][siteCardInfo[site]['userChoices']['bu']]['chart'] = preBuildAChartSeries(supplier,context, site,Globals().getYieldData()[supplier][site],type,yieldNamesRaw[supplier][site]);
       //}
     }
     if(siteCardInfo[site]['ShownChart'] == "Program"){
       //if(preBuiltCharts[site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']]['chart'] == null) {
-      preBuiltCharts[site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']]['chart'] = preBuildAChartSeries(supplier,context, site,Globals().getYieldData()[supplier][site][siteCardInfo[site]['userChoices']['bu']],type);
+      preBuiltCharts[site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']]['chart'] = preBuildAChartSeries(supplier,context, site,Globals().getYieldData()[supplier][site][siteCardInfo[site]['userChoices']['bu']],type,yieldNamesRaw[supplier][site][siteCardInfo[site]['userChoices']['bu']]);
       //}
     }
     if(siteCardInfo[site]['ShownChart'] == "Process"){
       //if(preBuiltCharts[site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']][siteCardInfo[site]['userChoices']['Process']]['chart'] == null) {
-      preBuiltCharts[site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']][siteCardInfo[site]['userChoices']['Process']]['chart'] = preBuildAChartSeries(supplier,context, site,Globals().getYieldData()[supplier][site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']],type);
+      preBuiltCharts[site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']][siteCardInfo[site]['userChoices']['Process']]['chart'] = preBuildAChartSeries(supplier,context, site,Globals().getYieldData()[supplier][site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']],type,yieldNamesRaw[supplier][site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']]);
       //}
     }
     if(siteCardInfo[site]['ShownChart'] == "Station"){
       //if(preBuiltCharts[site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']][siteCardInfo[site]['userChoices']['Process']][siteCardInfo[site]['userChoices']['Station']]['chart'] == null) {
-      preBuiltCharts[site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']][siteCardInfo[site]['userChoices']['Process']][siteCardInfo[site]['userChoices']['Station']]['chart'] = preBuildAChartSeries(supplier,context, site,Globals().getYieldData()[supplier][site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']][siteCardInfo[site]['userChoices']['Process']],type);
+      preBuiltCharts[site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']][siteCardInfo[site]['userChoices']['Process']][siteCardInfo[site]['userChoices']['Station']]['chart'] = preBuildAChartSeries(supplier,context, site,Globals().getYieldData()[supplier][site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']][siteCardInfo[site]['userChoices']['Process']],type,yieldNamesRaw[supplier][site][siteCardInfo[site]['userChoices']['bu']][siteCardInfo[site]['userChoices']['Program']][siteCardInfo[site]['userChoices']['Process']]);
       //}
     }
 
@@ -681,27 +708,45 @@ class MainSitePageState extends State<MainSitePage> {
     setState(() {});
   }
 
-  Future<bool> getInitialData() async {
+  Future<Map> getInitialYieldData() async{
+    Map yieldCopySupplierNames = Map.from(yields);
+    Map yieldCopySiteNames = {};
+    //key is supplier and value is site
+    List<Map> supplierSitePairs = [];
+    for(var supplierName in yieldCopySupplierNames.keys.toList()){
+        if(yieldCopySiteNames == null || !yieldCopySiteNames.containsKey(supplierName)) {
+          yieldCopySiteNames = Map.from(yields[supplierName]);
+        }
+        supplierSitePairs.add({supplierName:'NA'});
+        for (var siteName in yieldCopySiteNames.keys.toList()) {
+          supplierSitePairs.add({supplierName:siteName});
+        }
+      }
+    print('wait');
+
+        try {
+          await Future.wait([for (int i = 0; i < supplierSitePairs.length; i++) supplierSitePairs[i][supplierSitePairs[i].keys.toList()[0]] == 'NA' ? httpYieldSpecificCall('Supplier', supplierSitePairs[i].keys.toList()[0], 'NA', 'NA', 'NA', 'NA', 'NA'):httpYieldSpecificCall('Site', supplierSitePairs[i].keys.toList()[0], supplierSitePairs[i][supplierSitePairs[i].keys.toList()[0]], 'NA', 'NA', 'NA', 'NA')]);
+        } catch (e)  {
+          return ({'status':false,'code':e.toString()});
+        }
+        return ({'status':true,'code':'200'});
+      }
+
+  Future<Map> getInitialData() async {
     //await postData();
     //default no time to 1 day
-    bool result = await httpGetTopicNames();
-    if(result) {
-      yields.forEach((supplierKey, supplierValue) {
-        httpYieldSpecificCall(
-            'Supplier',
-            supplierKey,
-            'NA',
-            'NA',
-            'NA',
-            'NA',
-            'NA');
-        for (var siteValue in supplierValue) {}
-      });
+    print('Json Tree Before:' + DateTime.now().toString());
+    Map result = await httpGetTopicNames();
+    print('Json Tree After:' + DateTime.now().toString());
+    //not making a deep copy. from nested maps
+    if(result['status']) {
+      print('Yields Before:' + DateTime.now().toString());
+      Map result2 = await getInitialYieldData();
+      print('Yields After:' + DateTime.now().toString());
+      return ({'status': result2['status'], 'code': result2['code']});
     }else{
-
+      return({'status':result['status'],'code':result['code']});
     }
-    print(yields);
-    return true;
     //httpYieldCall();
 
     // Get the data once

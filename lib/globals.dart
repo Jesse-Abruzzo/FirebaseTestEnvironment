@@ -8,13 +8,17 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 
 
 String deviceID = 'NA';
+Map yieldNamesRaw = {};
+String httpIP = '10.61.245.106:8000';
 Map siteLoadingChart = {};
 List<Alerts> userAlerts = [];
+bool firstLoad = true;
 Map yieldChartData = {};
 String lastRefreshTime = DateFormat('MM-dd-yyyy hh:mm:ss a').format(DateTime.now()).toString();
 var yieldUpdateTimer;
 late User userInfo;
 bool currentTheme = false;
+Future<Map>? initialYieldFuture;
 final controller = SidebarXController(selectedIndex: 0, extended: true);
 String supplierFiltered = 'ALL';
 List supplierFilteredNames = [];
@@ -30,7 +34,7 @@ Map<String,Map<String,Map<String,List<LineChartData>>>> chartData = {};
 Map chartInfo = {};
 Map firebaseYields = {};
 List<SerialNumbers> serialNumbers = [];
-Map yields = {};
+Map<String,dynamic> yields = {};
 Map preBuiltCharts = {};
 Map<String,Map<String,Map<String,List<LineChartData>>>> chartDataFiltered = {};
 Map siteCardInfo = {};
@@ -204,7 +208,7 @@ class LineChartData {
   factory LineChartData.fromJson(Map<String, dynamic> parsedJson){
     return LineChartData(
        date: parsedJson['date'],
-       yield: parsedJson['yield'],
+       yield: parsedJson['Cumulative Yield'],
        serialNumber: parsedJson['SerialNumber']
     );
   }
