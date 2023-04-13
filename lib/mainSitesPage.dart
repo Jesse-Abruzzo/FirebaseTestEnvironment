@@ -569,54 +569,54 @@ class MainSitePageState extends State<MainSitePage> {
     //make call to get data
     if(type.toLowerCase() == "supplier") {
       yieldKeys = Globals().getYieldData().keys.toList();
-      if(Globals().getYieldData()[supplier].isNotEmpty()){
+      /*if(Globals().getYieldData()[supplier].isNotEmpty()){
         hasData = true;
-      }
+      }*/
     }else if(type.toLowerCase() == 'site') {
       yieldKeys = Globals().getYieldData()[supplier].keys.toList();
-      if(Globals().getYieldData()[supplier][site][keyClicked]['YieldData'] != null){
+      /*if(Globals().getYieldData()[supplier][site][keyClicked]['YieldData'] != null){
         hasData = true;
-      }
+      }*/
     } else if(type.toLowerCase() == 'bu') {
       bu = siteCardInfo[site]['userChoices']['bu'];
       yieldKeys = Globals().getYieldData()[supplier][site].keys.toList();
-      if(Globals().getYieldData()[supplier][site][bu][keyClicked]['YieldData'] != null){
+      /*if(Globals().getYieldData()[supplier][site][bu][keyClicked]['YieldData'] != null){
         hasData = true;
-      }
+      }*/
     }else if(type.toLowerCase() == 'program') {
       bu = siteCardInfo[site]['userChoices']['bu'];
       program = siteCardInfo[site]['userChoices']['Program'];
       yieldKeys = Globals().getYieldData()[supplier][site][bu].keys.toList();
-      if(Globals().getYieldData()[supplier][site][bu][program][keyClicked]['YieldData'] != null){
+      /*if(Globals().getYieldData()[supplier][site][bu][program][keyClicked]['YieldData'] != null){
         hasData = true;
-      }
+      }*/
     }else if(type.toLowerCase() == 'process') {
       bu = siteCardInfo[site]['userChoices']['bu'];
       program = siteCardInfo[site]['userChoices']['Program'];
       process = siteCardInfo[site]['userChoices']['Process'];
       yieldKeys = Globals().getYieldData()[supplier][site][bu][program].keys.toList();
-      if(Globals().getYieldData()[supplier][site][bu][program][process][keyClicked]['YieldData'] != null){
+      /*if(Globals().getYieldData()[supplier][site][bu][program][process][keyClicked]['YieldData'] != null){
         hasData = true;
-      }
+      }*/
     }else if(type.toLowerCase() == 'station') {
       bu = siteCardInfo[site]['userChoices']['bu'];
       program = siteCardInfo[site]['userChoices']['Program'];
       process = siteCardInfo[site]['userChoices']['Process'];
       station = siteCardInfo[site]['userChoices']['Station'];
       yieldKeys = yieldNamesRaw[supplier][site][bu][program][process].keys.toList();
-      if(Globals().getYieldData()[supplier][site][bu][program][process][station]['YieldData'] != null){
+      /*if(Globals().getYieldData()[supplier][site][bu][program][process][station]['YieldData'] != null){
         hasData = true;
-      }
+      }*/
     }
     print(yieldKeys);
     //get yield data and get keys like it does in names. Then for loop to get all key yieldData
-    if(!hasData){
+    //if(!hasData){
     try {
       await Future.wait([for(var key in yieldKeys) type == 'Supplier' ? httpYieldSpecificCall(type, key, site, bu, program, process, station):type == 'Site' ? httpYieldSpecificCall(type, supplier, key, bu, program, process, station):type == 'bu' ? httpYieldSpecificCall(type, supplier, site, key, program, process, station):type == 'Program' ? httpYieldSpecificCall(type, supplier, site, bu, key, process, station):type == 'Process' ? httpYieldSpecificCall(type, supplier, site, bu, program, key, station):httpYieldSpecificCall(type, supplier, site, bu, program, process, key)]);
     } catch (e)  {
       return false;
     }
-    }
+   // }
       if(type == 'bu'){
         //reset others
         siteCardInfo[site]['userChoices']['Process'] = '';

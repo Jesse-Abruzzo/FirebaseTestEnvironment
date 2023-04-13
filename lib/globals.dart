@@ -9,7 +9,7 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 
 String deviceID = 'NA';
 Map yieldNamesRaw = {};
-String httpIP = '10.61.245.106:8000';
+String httpIP = '10.61.246.100:8000';
 Map siteLoadingChart = {};
 List<Alerts> userAlerts = [];
 bool firstLoad = true;

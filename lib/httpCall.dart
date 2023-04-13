@@ -57,7 +57,7 @@ Future<Map> httpYieldSpecificCall(type,supplier,site,bu,program,process,station,
 
   // Await the http get response, then decode the json-formatted response.
   var response = await http.get(url);
-  if (response.statusCode == 200 && response.body != null) {
+  if (response.statusCode == 200 && response.body != "null") {
     Map<String,dynamic> yieldData = convert.jsonDecode(response.body);
     //combine into yields Map
       if(type.toLowerCase() == "supplier") {
@@ -94,9 +94,11 @@ Future<Map> httpGetTopicNames({String fromDate = '',String toDate = ''}) async {
   // Await the http get response, then decode the json-formatted response.
   var response = await http.get(url);
   if (response.statusCode == 200) {
-    yieldNamesRaw = convert.jsonDecode(response.body);
+    Map<String,dynamic> yieldNamesRaw2 = convert.jsonDecode(response.body);
+    yieldNamesRaw = yieldNamesRaw2['Data'];
     //combine into yields Map
-    yields = Map.from(yieldNamesRaw['Data']);
+    yields = Map.from(convert.jsonDecode(response.body)['Data']);
+    ///TDODO this map copy Bullshit
     return {'status':true,'code':response.statusCode};
   } else {
     print('Request failed with status: ${response.statusCode}.');
